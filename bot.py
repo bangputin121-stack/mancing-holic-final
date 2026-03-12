@@ -1,7 +1,9 @@
+import os
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ContextTypes
+from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
+from database import Database # Pastikan file database.py kamu sudah benar
 
-
+# --- HANDLER START ---
 async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     db = context.bot_data['db']
     user = update.effective_user
@@ -18,12 +20,6 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         text = (
             "🎣 *Selamat Datang di Fishing Game Bot!*\n\n"
-            "Rasakan serunya memancing virtual dengan ratusan jenis ikan!\n\n"
-            "🏞 Jelajahi berbagai lokasi mancing\n"
-            "🐟 Tangkap ikan dari Common hingga Legendary\n"
-            "⬆️ Upgrade peralatan pancingmu\n"
-            "💰 Jual ikan di Market\n"
-            "🏆 Bersaing di Leaderboard\n\n"
             "Klik tombol di bawah untuk mulai!"
         )
         keyboard = [[InlineKeyboardButton("📥 Daftar Sekarang", callback_data="register")]]
@@ -33,7 +29,7 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
-
+# --- HANDLER REGISTER ---
 async def register_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -41,24 +37,29 @@ async def register_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
 
     if db.get_player(user.id):
-        await query.edit_message_text("✅ Kamu sudah terdaftar! Gunakan /profil untuk melihat akunmu.")
+        await query.edit_message_text("✅ Kamu sudah terdaftar!")
         return
 
     success = db.register_player(user.id, user.username, user.full_name)
     if success:
-        text = (
-            f"✅ *Pendaftaran Berhasil!*\n\n"
-            f"👤 Nama: {user.full_name}\n"
-            f"💰 Koin Awal: 500\n"
-            f"🎣 Joran: Joran Bambu\n"
-            f"🪱 Umpan: Cacing Biasa\n"
-            f"📍 Lokasi: Sungai Desa\n\n"
-            f"Selamat memancing! Gunakan /fishing untuk mulai 🎣"
-        )
-        await query.edit_message_text(text, parse_mode='Markdown')
+        await query.edit_message_text("✅ *Pendaftaran Berhasil!* Gunakan /fishing untuk mulai.", parse_mode='Markdown')
     else:
-        await query.edit_message_text("❌ Gagal mendaftar. Coba lagi.")
+        await query.edit_message_text("❌ Gagal mendaftar.")
 
+# --- MAIN BLOCK ---
 if __name__ == '__main__':
+    token = os.getenv("BOT_TOKEN") 
+    
+    # 1. Bangun aplikasinya
+    application = ApplicationBuilder().token(token).build()
+
+    # 2. Masukkan database ke bot_data agar bisa diakses handler
+    application.bot_data['db'] = Database()
+
+    # 3. Hubungkan perintah
+    application.add_handler(CommandHandler('start', start_handler))
+    application.add_handler(CallbackQueryHandler(register_handler, pattern="^register$"))
+
+    # 4. Nyalakan!
     print("--- MESIN BOT MULAI DINYALAKAN ---")
     application.run_polling()
