@@ -1,43 +1,40 @@
 import os
 import logging
-from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler
+import asyncio
+from telegram import Update
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-# Gunakan try-except agar jika database error, bot tidak langsung CRASH
-try:
-    from database import Database
-    HAS_DB = True
-except ImportError:
-    HAS_DB = False
-    print("PERINGATAN: File database.py bermasalah atau kelas Database tidak ditemukan!")
-
-from handlers.start import start_handler, register_handler
-
-# Setup Logging
+# Setup Logging agar kita bisa lihat apa yang terjadi di Railway
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
 
-if __name__ == '__main__':
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("✅ Bot Mancing Mania Berhasil Hidup!")
+
+async def main():
     token = os.getenv("BOT_TOKEN")
-    
     if not token:
-        print("ERROR: BOT_TOKEN kosong!")
-    else:
-        # 1. Bangun Aplikasi
-        application = ApplicationBuilder().token(token).build()
+        print("Gagal: BOT_TOKEN tidak ditemukan!")
+        return
 
-        # 2. Inisialisasi Database hanya jika filenya benar
-        if HAS_DB:
-            try:
-                application.bot_data['db'] = Database()
-            except Exception as e:
-                print(f"Gagal inisialisasi Database: {e}")
+    # Inisialisasi aplikasi dengan cara yang lebih aman untuk Python 3.13
+    application = ApplicationBuilder().token(token).build()
+    
+    # Tambahkan satu perintah tes saja
+    application.add_handler(CommandHandler("start", start))
 
-        # 3. Daftarkan Perintah Utama
-        application.add_handler(CommandHandler('start', start_handler))
-        application.add_handler(CallbackQueryHandler(register_handler, pattern="^register$"))
+    print("--- MESIN BOT SEDANG COBA DINYALAKAN ---")
+    await application.initialize()
+    await application.start()
+    await application.updater.start_polling()
+    
+    # Menjaga bot tetap hidup
+    await asyncio.Event().wait()
 
-        # 4. Nyalakan
-        print("--- MESIN BOT SUDAH AKTIF ---")
-        application.run_polling()
+if __name__ == '__main__':
+    try:
+        asyncio.run(main())
+    except (KeyboardInterrupt, SystemExit):
+        pass
