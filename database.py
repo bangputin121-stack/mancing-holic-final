@@ -1,8 +1,19 @@
-BOT_TOKEN = "YOUR_BOT_TOKEN_HERE"
-GROUP_LINK = "https://t.me/your_group"
-CHANNEL_LINK = "https://t.me/your_channel"
+class Database:
+    def __init__(self):
+        # Ini adalah tempat simpan data sementara
+        self.players = {}
 
-# Game settings
-FISHING_COOLDOWN = 30        # seconds between fishing
-DAILY_COOLDOWN = 86400       # 24 hours
-BOOST_DURATION = 3600        # 1 hour boost duration
+    def get_player(self, user_id):
+        return self.players.get(user_id)
+
+    def register_player(self, user_id, username, full_name):
+        if user_id not in self.players:
+            self.players[user_id] = {
+                'username': username,
+                'full_name': full_name,
+                'coins': 500,
+                'level': 1,
+                'total_fish': 0
+            }
+            return True
+        return False
