@@ -1,40 +1,47 @@
 import os
 import logging
-import asyncio
-from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
 
-# Setup Logging agar kita bisa lihat apa yang terjadi di Railway
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
+# Import file yang baru kita buat
+from database import Database
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("✅ Bot Mancing Mania Berhasil Hidup!")
+# Setup Logging
+logging.basicConfig(level=logging.INFO)
 
-async def main():
-    token = os.getenv("BOT_TOKEN")
-    if not token:
-        print("Gagal: BOT_TOKEN tidak ditemukan!")
-        return
+# --- HANDLERS ---
+async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    db = context.bot_data['db']
+    user = update.effective_user
+    player = db.get_player(user.id)
 
-    # Inisialisasi aplikasi dengan cara yang lebih aman untuk Python 3.13
-    application = ApplicationBuilder().token(token).build()
+    if player:
+        await update.message.reply_text(f"🎣 Halo {user.first_name}! Kamu sudah terdaftar.")
+    else:
+        keyboard = [[InlineKeyboardButton("📥 Daftar Sekarang", callback_data="register")]]
+        await update.message.reply_text("Selamat datang! Klik daftar:", reply_markup=InlineKeyboardMarkup(keyboard))
+
+async def register_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    db = context.bot_data['db']
+    user = update.effective_user
     
-    # Tambahkan satu perintah tes saja
-    application.add_handler(CommandHandler("start", start))
-
-    print("--- MESIN BOT SEDANG COBA DINYALAKAN ---")
-    await application.initialize()
-    await application.start()
-    await application.updater.start_polling()
-    
-    # Menjaga bot tetap hidup
-    await asyncio.Event().wait()
+    if db.register_player(user.id, user.username, user.full_name):
+        await query.edit_message_text("✅ Pendaftaran Berhasil!")
+    else:
+        await query.edit_message_text("kamu sudah terdaftar!")
 
 if __name__ == '__main__':
-    try:
-        asyncio.run(main())
-    except (KeyboardInterrupt, SystemExit):
-        pass
+    token = os.getenv("BOT_TOKEN")
+    
+    application = ApplicationBuilder().token(token).build()
+    
+    # Inisialisasi Database ke dalam bot
+    application.bot_data['db'] = Database()
+
+    application.add_handler(CommandHandler('start', start_handler))
+    application.add_handler(CallbackQueryHandler(register_handler, pattern="^register$"))
+
+    print("--- MESIN BOT AKTIF ---")
+    application.run_polling()
