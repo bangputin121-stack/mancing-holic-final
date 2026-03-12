@@ -1,65 +1,49 @@
 import os
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
-from database import Database # Pastikan file database.py kamu sudah benar
+import logging
+from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler
 
-# --- HANDLER START ---
-async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    db = context.bot_data['db']
-    user = update.effective_user
-    player = db.get_player(user.id)
+# Import database dan semua fitur dari folder handlers
+from database import Database
+from handlers.start import start_handler, register_handler
+from handlers.fishing import fishing_handler, fishing_callback
+from handlers.shop import shop_handler, shop_callback
+from handlers.profile import profile_handler
 
-    if player:
-        text = (
-            f"🎣 *Selamat Datang Kembali, {user.first_name}!*\n\n"
-            f"📊 Level: {player['level']} | 💰 Koin: {player['coins']:,}\n"
-            f"🐟 Total Tangkapan: {player['total_fish']}\n\n"
-            f"Gunakan /help untuk melihat semua perintah."
-        )
-        await update.message.reply_text(text, parse_mode='Markdown')
-    else:
-        text = (
-            "🎣 *Selamat Datang di Fishing Game Bot!*\n\n"
-            "Klik tombol di bawah untuk mulai!"
-        )
-        keyboard = [[InlineKeyboardButton("📥 Daftar Sekarang", callback_data="register")]]
-        await update.message.reply_text(
-            text,
-            parse_mode='Markdown',
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
+# Setup Logging agar kamu bisa lihat error di Railway dengan jelas
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
 
-# --- HANDLER REGISTER ---
-async def register_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    db = context.bot_data['db']
-    user = update.effective_user
-
-    if db.get_player(user.id):
-        await query.edit_message_text("✅ Kamu sudah terdaftar!")
-        return
-
-    success = db.register_player(user.id, user.username, user.full_name)
-    if success:
-        await query.edit_message_text("✅ *Pendaftaran Berhasil!* Gunakan /fishing untuk mulai.", parse_mode='Markdown')
-    else:
-        await query.edit_message_text("❌ Gagal mendaftar.")
-
-# --- MAIN BLOCK ---
 if __name__ == '__main__':
-    token = os.getenv("BOT_TOKEN") 
+    # 1. Ambil Token dari tab Variables Railway
+    token = os.getenv("BOT_TOKEN")
     
-    # 1. Bangun aplikasinya
-    application = ApplicationBuilder().token(token).build()
+    if not token:
+        print("ERROR: BOT_TOKEN tidak ditemukan di Variables Railway!")
+    else:
+        # 2. Bangun Aplikasi Bot
+        application = ApplicationBuilder().token(token).build()
 
-    # 2. Masukkan database ke bot_data agar bisa diakses handler
-    application.bot_data['db'] = Database()
+        # 3. Inisialisasi Database
+        application.bot_data['db'] = Database()
 
-    # 3. Hubungkan perintah
-    application.add_handler(CommandHandler('start', start_handler))
-    application.add_handler(CallbackQueryHandler(register_handler, pattern="^register$"))
+        # 4. DAFTARKAN SEMUA PERINTAH (Handlers)
+        # Perintah Dasar
+        application.add_handler(CommandHandler('start', start_handler))
+        application.add_handler(CommandHandler('profil', profile_handler))
+        
+        # Perintah Mancing
+        application.add_handler(CommandHandler('fishing', fishing_handler))
+        application.add_handler(CallbackQueryHandler(fishing_callback, pattern="^fish_"))
+        
+        # Perintah Toko/Shop
+        application.add_handler(CommandHandler('shop', shop_handler))
+        application.add_handler(CallbackQueryHandler(shop_callback, pattern="^buy_"))
+        
+        # Handler untuk pendaftaran user baru
+        application.add_handler(CallbackQueryHandler(register_handler, pattern="^register$"))
 
-    # 4. Nyalakan!
-    print("--- MESIN BOT MULAI DINYALAKAN ---")
-    application.run_polling()
+        # 5. NYALAKAN BOT
+        print("--- MESIN MANCING HOLIC SUDAH AKTIF ---")
+        application.run_polling()
