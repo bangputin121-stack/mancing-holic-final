@@ -58,3 +58,7 @@ async def register_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(text, parse_mode='Markdown')
     else:
         await query.edit_message_text("❌ Gagal mendaftar. Coba lagi.")
+
+if __name__ == '__main__':
+    print("--- MESIN BOT MULAI DINYALAKAN ---")
+    application.run_polling()
